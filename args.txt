@@ -1,0 +1,5 @@
+java -jar dfs.jar -m localhost:50000 slaves.txt master.txt
+java -jar dfs.jar -c localhost:50001 localhost:50000 client.txt
+java -jar dfs.jar -s localhost:50002
+java -jar dfs.jar -s localhost:50003
+java -jar dfs.jar -s localhost:50004
