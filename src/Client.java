@@ -1,15 +1,8 @@
 import java.io.*;
 import java.net.*;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.Scanner;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.TreeMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
@@ -35,7 +28,6 @@ public class Client {
 			READ_DIR=7, 
 			MAKE_DIR=8, 
 			DELETE_DIR=9;
-	private String currentFolder;
 	
 	public Client(String ip, String port, String masterIp, String masterPort, String logFile) throws ParseException {
 		this.port=Integer.parseInt(port);
@@ -205,7 +197,6 @@ public class Client {
 		else if (split[0].equals("cd")){
 			result[0]=OPEN_DIR;
 			String path=split[1];
-			currentFolder=split[1];
 			result=merge(result, path.getBytes());
 		}
 		else if (split[0].equals("ls")){
