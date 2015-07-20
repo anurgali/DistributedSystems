@@ -175,8 +175,14 @@ public class Client {
 			}
 			else{
 				result[0]=FILE_WRITE;
-				String path=split[1];
-				String msg=split[2];
+				String path=split[1];				
+				File f=new File(path);
+				FileReader fr=new FileReader(f);
+				char[] cbuf=new char[1000];
+				fr.read(cbuf, 0, cbuf.length);
+				String msg=new String(cbuf);
+				fr.close();
+				
 				byte[] msgInBytes=msg.getBytes();
 				result=merge(result, path.getBytes());
 				for (int i=0; i<msgInBytes.length; i++){

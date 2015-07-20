@@ -25,7 +25,7 @@ public class Master {
 
 	private File slaves;
 	private int port;
-	private Logger logger = Logger.getLogger("Server Log");  
+	private Logger logger = Logger.getLogger("Server Log");   //$NON-NLS-1$
 	private String ip;
 	private ArrayList<IpPort> _slaves=new ArrayList<IpPort>();
 	private HashMap<IpPort, String> currentPaths=new HashMap<IpPort, String>();
@@ -46,7 +46,7 @@ public class Master {
 		slaves = new File(slavesfile);
 		if (!slaves.exists()) {
 			throw new FileNotFoundException(
-					"The slaves file is not found! Try again");
+					"The slaves file is not found! Try again"); //$NON-NLS-1$
 		}
 		try {  
 	    	FileHandler fh = new FileHandler(logFile);  
@@ -67,7 +67,7 @@ public class Master {
 		Scanner sc=new Scanner(slaves);
 		while(sc.hasNextLine()){
 			String ipPort=sc.nextLine();
-			String[] split=ipPort.split(":");
+			String[] split=ipPort.split(":"); //$NON-NLS-1$
 			String ip=split[0];
 			String port=split[1];
 			int _port=Integer.parseInt(port);
@@ -123,12 +123,12 @@ public class Master {
 		
 		File file = new File(path);
 		String parent=file.getParent(),
-				fullPath="";
+				fullPath=""; //$NON-NLS-1$
 		if (parent==null){
 			parent=currentPaths.get(_clientAddress);
-			if (parent!=null && !parent.equals("\\") && !path.equals(".."))
-				fullPath=parent+"\\"+path;
-			else if (path.equals("..")){
+			if (parent!=null && !parent.equals("\\") && !path.equals("..")) //$NON-NLS-1$ //$NON-NLS-2$
+				fullPath=parent+"\\"+path; //$NON-NLS-1$
+			else if (path.equals("..")){ //$NON-NLS-1$
 				File ff=new File(parent);
 				fullPath=ff.getParent();
 				parent=fullPath;
@@ -160,7 +160,7 @@ public class Master {
 			}
 			if (result[0]!=(INITIALIZE*-1)){
 				metadata.put(_clientAddress, new TreeMap<String, IpPort>());
-				currentPaths.put(_clientAddress, "\\");
+				currentPaths.put(_clientAddress, "\\"); //$NON-NLS-1$
 			}
 //			result[0]=INITIALIZE;
 			break;
@@ -211,7 +211,7 @@ public class Master {
 			}
 			break;
 		default:
-			System.out.println("Unknown command "+command);
+			System.out.println("Unknown command "+command); //$NON-NLS-1$
 			break;
 		}
 		return result;
