@@ -1,27 +1,22 @@
 package MR;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
 import DFS.Master;
 
 public class Coordinator {
-
+    private static File myFile;
 	private Master master;
 	boolean isWorking=false;
 
 	public Coordinator(Master master){
-		this.master=master;
+
+        this.master=master;
 	}
 	
-	//1. get input of the file and split into pieces <<<< Askhat
+	//1. get input of the file and split into pieces <<<< Askhat + DONE
 	
-	//2. send each piece to Master <<<<Askhat
+	//2. send each piece to Master <<<<Askhat +DONE, I hope
 	
 	//3. Master sends to slaves the Mapper work via RMI and sends back to Coordinator the result <<<Albert
 	
@@ -37,41 +32,56 @@ public class Coordinator {
 	//7. Coordinator waits until all tasks are finished and once they finish, it displays "Success"
 	//after that it can start a new Job. <<<Askhat
 	public void queue(Job job) throws IOException{
-		isWorking=true;
+        String fileName = String.valueOf(job.getInput());
+        myFile = new File(String.valueOf(job.getInput()));
+        InputStream is = new BufferedInputStream(new FileInputStream(fileName));
+        isWorking=true;
 		
 		int numberOfSlaves=master.get_slaves().size();
 		int numberOfLines=0;
 		try {
 			numberOfLines=countLines(job.getInput().getPath());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		int linesForSlaves=numberOfLines/numberOfSlaves;
-		
+        System.out.println("numberOfSlaves: "+numberOfSlaves+"\nnumberOfLines: " +numberOfLines+"\nlinesForSlaves: "+linesForSlaves);
 		//read file
-		File f=job.getInput();
 		StringBuilder text=new StringBuilder();
-		text.append("");
-		/*  int groupNumber=0, count=0;
-		 * while file readline
-		 * {
-		 * 		count++;
-		 * 		
-		 * 		text.append(readLine());
-		 * 		if (count==linesForSlaves){
-		 * 			master.sendToMapper(0, text.toString());
-		 * 			count=0;
-		 * 			text.clear();
-		 * 			groupNumber++;
-		 * 		}
-		 * }
-		 */
-		//take N number of Lines and send each to Master
-		//master.sendToMapper(0, text.toString());
-		
-		
-		//wait for all pieces to finish
+        BufferedReader br = new BufferedReader(new FileReader(fileName));
+
+        try {
+            int groupNumber = 0, count = 0;
+            byte[] c = new byte[10];
+            int readChars = 0;
+            boolean empty = true;
+            while ((readChars = is.read(c)) != -1) {
+
+                empty = false;
+                for (int i = 0; i < readChars; ++i) {
+                    if (c[i] == '\n') {
+                        ++count;
+                        text.append(br.readLine()+'\n');
+                        if(count==linesForSlaves){
+                            if(groupNumber==numberOfSlaves){
+                               // System.out.println("Send to Mapper group number: " + groupNumber + "\nText: \n" + text.toString()+"\nDone!");
+                                master.sendToMapper(groupNumber, text.toString());
+                            }
+                            else {
+                                ++groupNumber;
+                                master.sendToMapper(groupNumber, text.toString());
+                                //      System.out.print("Send to Mapper group number: "+groupNumber+"\nText: \n"+text.toString());
+                                count = 0;
+                                text = new StringBuilder();
+                            }
+                        }
+                    }
+                }
+            }
+        }finally {
+            is.close();
+        }
+
 	
 	}
 	
