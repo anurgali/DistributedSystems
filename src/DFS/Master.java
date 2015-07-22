@@ -261,6 +261,12 @@ public class Master {
 		return paths.get(path);
 	}
 
+	public ArrayList<IpPort> get_slaves() {
+		return _slaves;
+	}
 
+	public boolean sendToMapper(int groupNumber, String text){
+		return false;
+	}
 
 }
