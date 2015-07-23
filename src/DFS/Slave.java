@@ -1,8 +1,10 @@
 package DFS;
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -13,11 +15,20 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Scanner;
+import java.util.List;
+import java.util.Map;
 import java.util.TreeMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import MR.IMapper;
+import MR.IReducer;
+import MR.Mapper;
+import MR.Reducer;
+
+import util.Config;
+import util.Converter;
 
 
 public class Slave {
@@ -26,6 +37,7 @@ public class Slave {
 	private String ip, masterIp;
 	private DatagramSocket slaveSocket;
 	private Logger logger = Logger.getLogger("Slave Log");
+	private int length=Integer.parseInt(Config.getString("length"));
 	
 	//client->folder->files
 	private HashMap<IpPort, TreeMap<String, ArrayList<File>>> directory=
@@ -38,7 +50,9 @@ public class Slave {
 			OPEN_DIR=6, 
 			READ_DIR=7, 
 			MAKE_DIR=8, 
-			DELETE_DIR=9;
+			DELETE_DIR=9,
+			MAP=101,
+			REDUCE=102;
 	
 	public Slave(String ip, String port) throws SocketException, UnknownHostException{
 		this.port=Integer.parseInt(port);
@@ -58,7 +72,7 @@ public class Slave {
 	}
 	
 	public void run() throws IOException{
-		byte[] receiveData = new byte[1024];
+		byte[] receiveData = new byte[length];
 		byte[] sendData = new byte[9];
 		try{
 			while (true) {
@@ -78,12 +92,12 @@ public class Slave {
 	}
 
 	private byte[] parseRequest(byte[] receiveData, DatagramPacket receivePacket) throws IOException {
-		byte[] sendData=new byte[1024];
+		byte[] sendData=new byte[length];
 		
 		byte header=receiveData[0];
 		byte[] addrInBytes = Arrays.copyOfRange(receiveData, 1, 22);
 		byte[] pathInBytes=Arrays.copyOfRange(receiveData, 22, 43);
-		byte[] msgInBytes = Arrays.copyOfRange(receiveData, 43, 1024);
+		byte[] msgInBytes = Arrays.copyOfRange(receiveData, 43, length);
 
 		String addr = new String(addrInBytes);
 		addr=addr.trim();
@@ -203,13 +217,45 @@ public class Slave {
 			else{
 				sendData[0]=DELETE_DIR*-1;
 			}
-			break;			
+			break;		
+		case MAP:
+			IMapper mapper = new Mapper();
+			Map<String, List<Object>> output=new TreeMap<String, List<Object>>();
+			mapper.map(path, msg, output);
+			byte[] outputInBytes=Converter.convertToBytes(output);
+			sendData[0]=MAP+10;
+			sendData=merge(sendData, outputInBytes);
+			break;
+		case REDUCE:
+			IReducer reducer=new Reducer();
+			try {
+				Map<String, List<Object>> input=(Map<String, List<Object>>)Converter.createObject(msgInBytes);
+				String reduceOutput=new String();
+				reducer.reduce(input, reduceOutput);
+				f=new File(path);
+				if (f.createNewFile()){
+					PrintWriter pwPrintWriter = new PrintWriter(f);
+					pwPrintWriter.println(msg);
+					pwPrintWriter.flush();
+					pwPrintWriter.close();
+					directory.get(_clientAddress).get(f.getParent()).add(f);
+					sendData[0]=REDUCE+10;
+				}
+				else{
+					sendData[0]=REDUCE*-1;
+				}
+				
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
+			}
+			
+			break;
 		default:
 			break;
 		}
 		return sendData;
 	}
-	
+
 	private byte[] merge(byte[] result, byte[] bytes) {
 		for (int i=0; i<result.length; i++){
 			if (result[i]==0){

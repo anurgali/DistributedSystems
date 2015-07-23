@@ -1,13 +1,22 @@
 package MR;
 
 import java.io.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.TreeMap;
 
+import DFS.IpPort;
 import DFS.Master;
 
 public class Coordinator {
     private static File myFile;
 	private Master master;
 	boolean isWorking=false;
+	private String fullPath;
+	private IpPort _clientAddress;
+	private Map<String, List<Object>> oneBigMap=new TreeMap<String, List<Object>>();
+	private int countMaps=0;
 
 	public Coordinator(Master master){
 
@@ -31,79 +40,88 @@ public class Coordinator {
 	
 	//7. Coordinator waits until all tasks are finished and once they finish, it displays "Success"
 	//after that it can start a new Job. <<<Askhat
-	public void queue(Job job) throws IOException{
-        String fileName = String.valueOf(job.getInput());
-        myFile = new File(String.valueOf(job.getInput()));
-        InputStream is = new BufferedInputStream(new FileInputStream(fileName));
-        isWorking=true;
+	public void queue(String fullPath, IpPort _clientAddress, String text) throws IOException{
+		if (isWorking=true)
+			return;
+		countMaps=0;
+		oneBigMap.clear();
+		this.fullPath=fullPath;
+		this._clientAddress=_clientAddress;
+		isWorking=true;
 		
 		int numberOfSlaves=master.get_slaves().size();
 		int numberOfLines=0;
-		try {
-			numberOfLines=countLines(job.getInput().getPath());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		numberOfLines=countLines(text);
 		int linesForSlaves=numberOfLines/numberOfSlaves;
-        System.out.println("numberOfSlaves: "+numberOfSlaves+"\nnumberOfLines: " +numberOfLines+"\nlinesForSlaves: "+linesForSlaves);
-		//read file
-		StringBuilder text=new StringBuilder();
-        BufferedReader br = new BufferedReader(new FileReader(fileName));
-
+        //read file
+		StringBuilder textPart=new StringBuilder();
+        Scanner sc=new Scanner(text);
         try {
             int groupNumber = 0, count = 0;
-            byte[] c = new byte[10];
-            int readChars = 0;
-            boolean empty = true;
-            while ((readChars = is.read(c)) != -1) {
-
-                empty = false;
-                for (int i = 0; i < readChars; ++i) {
-                    if (c[i] == '\n') {
-                        ++count;
-                        text.append(br.readLine()+'\n');
-                        if(count==linesForSlaves){
-                            if(groupNumber==numberOfSlaves){
-                               // System.out.println("Send to Mapper group number: " + groupNumber + "\nText: \n" + text.toString()+"\nDone!");
-                                master.sendToMapper(groupNumber, text.toString());
-                            }
-                            else {
-                                ++groupNumber;
-                                master.sendToMapper(groupNumber, text.toString());
-                                //      System.out.print("Send to Mapper group number: "+groupNumber+"\nText: \n"+text.toString());
-                                count = 0;
-                                text = new StringBuilder();
-                            }
-                        }
+            while (sc.hasNextLine()) {
+            	String line=sc.nextLine();
+            	count++;
+            	textPart.append(line+'\n');
+            	if(count==linesForSlaves){
+                    if(groupNumber==numberOfSlaves-1){
+                    	while (sc.hasNextLine()){
+                    		line=sc.nextLine();
+                        	count++;
+                        	textPart.append(line+'\n');
+                    	}
+                        master.sendToMapper(groupNumber, textPart.toString(), fullPath);
                     }
-                }
+                    else {
+                        master.sendToMapper(groupNumber, textPart.toString(), fullPath);
+                        groupNumber++;
+                        count = 0;
+                        textPart = new StringBuilder();
+                    }
+                }                
             }
         }finally {
-            is.close();
+            sc.close();
         }
 
 	
 	}
 	
-	// taken from: http://stackoverflow.com/questions/453018/number-of-lines-in-a-file-in-java
-	public int countLines(String filename) throws IOException {
-	    InputStream is = new BufferedInputStream(new FileInputStream(filename));
-	    try {
-	        byte[] c = new byte[1024];
-	        int count = 0;
-	        int readChars = 0;
-	        boolean empty = true;
-	        while ((readChars = is.read(c)) != -1) {
-	            empty = false;
-	            for (int i = 0; i < readChars; ++i) {
-	                if (c[i] == '\n') {
-	                    ++count;
-	                }
-	            }
-	        }
-	        return (count == 0 && !empty) ? 1 : count;
-	    } finally {
-	        is.close();
+	public int countLines(String msg) {
+	    Scanner sc=new Scanner(msg);
+	    int count=0;
+	    while (sc.hasNextLine()){
+	    	count++;
 	    }
+	    sc.close();
+	    return count;
 	}
+
+	public void mergeMaps(Map<String, List<Object>> output) {
+		for (String key: output.keySet()){
+			List<Object> values = output.get(key);
+			if (oneBigMap.containsKey(key)){
+				oneBigMap.get(key).addAll(values);
+			}
+			else{
+				oneBigMap.put(key, values);
+			}
+		}
+		int numberOfSlaves=master.get_slaves().size();
+		countMaps++;
+		if (countMaps==numberOfSlaves){
+			countMaps=0;
+			int roundRobin=0;
+			for (String key: oneBigMap.keySet()){
+				int slaveIndex=roundRobin%numberOfSlaves;
+				List<Object> values = oneBigMap.get(key);
+				try {
+					master.sendToReducer(slaveIndex, key, values, fullPath, _clientAddress);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+	}
+
+	
 }

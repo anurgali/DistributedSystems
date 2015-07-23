@@ -1,8 +1,9 @@
 package MR;
 
+import java.util.List;
 import java.util.Map;
 
 public interface IReducer{
 
-	public void reduce(Map<Object, Object> input, Object output);
+	public void reduce(Map<String, List<Object>> input, Object output);
 }

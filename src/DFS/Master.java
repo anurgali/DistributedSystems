@@ -1,7 +1,13 @@
 package DFS;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -11,11 +17,18 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.TreeMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import util.Config;
+import util.Converter;
+
+import MR.Coordinator;
 
 /**
  * 
@@ -26,6 +39,7 @@ public class Master {
 
 	private File slaves;
 	private int port;
+	private int length=Integer.parseInt(Config.getString("length"));
 	private Logger logger = Logger.getLogger("Server Log");   //$NON-NLS-1$
 	private String ip;
 	private ArrayList<IpPort> _slaves=new ArrayList<IpPort>();
@@ -40,7 +54,11 @@ public class Master {
 			OPEN_DIR=6, 
 			READ_DIR=7, 
 			MAKE_DIR=8, 
-			DELETE_DIR=9;
+			DELETE_DIR=9,
+			MR=100,
+			MAP=101,
+			REDUCE=102;
+	private Coordinator coordinator;
 	
 	public Master(String ip, String port, String slavesfile, String logFile) 
 			throws FileNotFoundException, ParseException, UnknownHostException {
@@ -62,6 +80,7 @@ public class Master {
 		this.port=Integer.parseInt(port);
 		this.ip=ip;		
 		parseSlaves();
+		coordinator=new Coordinator(this);
 	}
 	
 	private void parseSlaves() throws FileNotFoundException, NumberFormatException, UnknownHostException{
@@ -84,8 +103,8 @@ public class Master {
 	public void run() throws IOException {
 		InetAddress IPAddress = InetAddress.getByName(ip);
 		serverSocket = new DatagramSocket(port, IPAddress);
-		byte[] receiveData = new byte[1024];
-		byte[] sendData = new byte[1024];
+		byte[] receiveData = new byte[length];
+		byte[] sendData = new byte[length];
 		try{
 			while (true) {
 				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
@@ -119,7 +138,7 @@ public class Master {
 		IpPort _clientAddress=new IpPort(clientAddress, clientPort),
 				slave=null;
 		byte command=receiveData[0];
-		byte[] result=new byte[1024];
+		byte[] result=new byte[length];
 		TreeMap<String, IpPort> slaveTree = metadata.get(_clientAddress);
 		
 		File file = new File(path);
@@ -145,7 +164,7 @@ public class Master {
 		switch (command){
 		case INITIALIZE:
 			for (IpPort addr: _slaves){
-				byte[] sendData=new byte[1024];
+				byte[] sendData=new byte[length];
 				sendData[0]=INITIALIZE;
 				byte[] addrInBytes=_clientAddress.toString().getBytes();
 				for (int i=0; i< addrInBytes.length; i++){
@@ -189,13 +208,13 @@ public class Master {
 		case READ_DIR:
 			fullPath=currentPaths.get(_clientAddress);
 			slave=slaveTree.get(fullPath);
-			sendCommandToSlave(slave, fullPath, _clientAddress, READ_DIR, null);
+			sendCommandToSlave(slave, fullPath, _clientAddress, READ_DIR, "");
 			result=waitForSlaveReply(command);
 			break;
 		case MAKE_DIR:
 			int index=fullPath.hashCode() % _slaves.size();
 			slave = _slaves.get(index);//this is the slave where the folder should be created.
-			sendCommandToSlave(slave, fullPath, _clientAddress, MAKE_DIR, null);
+			sendCommandToSlave(slave, fullPath, _clientAddress, MAKE_DIR, "");
 			result=waitForSlaveReply(command);
 			slaveTree.put(fullPath, slave);
 //			result[0]=MAKE_DIR;
@@ -203,12 +222,24 @@ public class Master {
 		case DELETE_DIR:
 			if (slaveTree.containsKey(fullPath)){
 				slave = slaveTree.get(fullPath);
-				sendCommandToSlave(slave, fullPath, _clientAddress, DELETE_DIR, null);
+				sendCommandToSlave(slave, fullPath, _clientAddress, DELETE_DIR, "");
 				slaveTree.remove(fullPath);
 				result[0]=DELETE_DIR;
 			}
 			else{
 				result[0]=-1*DELETE_DIR;
+			}
+			break;
+		case MR:
+			coordinator.queue(fullPath, _clientAddress, msg);
+			break;
+		case MAP+10:
+			byte[] objectInBytes = Arrays.copyOfRange(receiveData, 1, length);
+			try {
+				Map<String, List<Object>> output=(Map<String, List<Object>>) Converter.createObject(objectInBytes);
+				coordinator.mergeMaps(output);
+			} catch (ClassNotFoundException e) {
+				e.printStackTrace();
 			}
 			break;
 		default:
@@ -218,12 +249,13 @@ public class Master {
 		return result;
 	}
 
+	
 	private void sendCommandToSlave(IpPort s, String path, IpPort clientAddress, byte command, String msg) throws IOException {
-		byte[] sendData = new byte[1024];
+		byte[] sendData = new byte[length];
 		byte[] addrInBytes=clientAddress.toString().getBytes();
 		byte[] pathInBytes = path.getBytes();
 		byte[] msgInBytes = {};
-		if (msg!=null)
+		if (msg!=null && msg.length()>0)
 			msgInBytes=msg.getBytes();
 		sendData[0]=command;
 		for (int i=0; i<addrInBytes.length; i++){
@@ -240,8 +272,27 @@ public class Master {
 		serverSocket.send(sendPacket);
 	}
 	
+	private void sendCommandToSlave(IpPort s, String path, IpPort clientAddress, byte command, byte[] msgInBytes) throws IOException {
+		byte[] sendData = new byte[length];
+		byte[] addrInBytes=clientAddress.toString().getBytes();
+		byte[] pathInBytes = path.getBytes();
+		sendData[0]=command;
+		for (int i=0; i<addrInBytes.length; i++){
+			sendData[i+1]=addrInBytes[i];
+		}
+		for (int i=0; i<pathInBytes.length; i++){
+			sendData[i+22]=pathInBytes[i];
+		}
+		for (int i=0; i<msgInBytes.length; i++){
+			sendData[i+43]=msgInBytes[i];
+		}
+		DatagramPacket sendPacket = new DatagramPacket(sendData,
+				sendData.length, s.ip, s.port);
+		serverSocket.send(sendPacket);
+	}
+	
 	private byte[] waitForSlaveReply(byte command) throws IOException{
-		byte[] receiveData=new byte[1024];
+		byte[] receiveData=new byte[length];
 		try{
 			DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 			serverSocket.setSoTimeout(3000);
@@ -265,8 +316,20 @@ public class Master {
 		return _slaves;
 	}
 
-	public boolean sendToMapper(int groupNumber, String text){
+	public boolean sendToMapper(int groupNumber, String text, String fullPath) throws IOException{
+		int index=groupNumber%_slaves.size();
+		IpPort slave = _slaves.get(index);
+		sendCommandToSlave(slave, fullPath, slave, MAP, text);
 		return false;
 	}
+
+	public void sendToReducer(int slaveIndex, String key, List<Object> values, 
+			String fullPath, IpPort _clientAddress) throws IOException {
+		IpPort slave = _slaves.get(slaveIndex);
+		byte[] toSend=Converter.convertToBytes(values);
+		sendCommandToSlave(slave, fullPath, _clientAddress, REDUCE, toSend);
+	}
+	
+	
 
 }

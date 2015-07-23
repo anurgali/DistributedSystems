@@ -8,6 +8,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
+import util.Config;
+
 /**
  * 
  * @author anurgali
@@ -16,6 +18,7 @@ import java.util.logging.SimpleFormatter;
 public class Client {
 
 	private int port, masterPort;
+	private int length=Integer.parseInt(Config.getString("length"));
 	private String ip, masterIp;
 	private String cmdStr="cmd>";
 	private Logger logger = Logger.getLogger("Client Log");
@@ -28,7 +31,8 @@ public class Client {
 			OPEN_DIR=6, 
 			READ_DIR=7, 
 			MAKE_DIR=8, 
-			DELETE_DIR=9;
+			DELETE_DIR=9,
+			MR=100;			
 	
 	public Client(String ip, String port, String masterIp, String masterPort, String logFile) throws ParseException {
 		this.port=Integer.parseInt(port);
@@ -161,7 +165,7 @@ public class Client {
 
 	private byte[] parseCommand(String command) throws IOException {
 		String[] split=command.split(" ");
-		byte[] result=new byte[1024];
+		byte[] result=new byte[length];
 		if (split[0].equals("init")){
 			result[0]=INITIALIZE;
 		}
@@ -170,25 +174,24 @@ public class Client {
 			String fname=split[1];
 			result=merge(result, fname.getBytes());
 		}
-		else if (split[0].equals("fwrite")){
-			if (split.length<3){
-				System.out.println("Specify the message.");
-			}
-			else{
+		else if (split[0].equals("fwrite") || split[0].equals("mr")){
+			if (split[0].equals("fwrite"))
 				result[0]=FILE_WRITE;
-				String path=split[1];				
-				File f=new File(path);
-				FileReader fr=new FileReader(f);
-				char[] cbuf=new char[1000];
-				fr.read(cbuf, 0, cbuf.length);
-				String msg=new String(cbuf);
-				fr.close();
-				
-				byte[] msgInBytes=msg.getBytes();
-				result=merge(result, path.getBytes());
-				for (int i=0; i<msgInBytes.length; i++){
-					result[i+22]=msgInBytes[i];
-				}
+			else if (split[0].equals("mr"))
+				result[0]=MR;
+			String path=split[1];				
+			File f=new File(path);
+			FileReader fr=new FileReader(f);
+			
+			char[] cbuf=new char[length];
+			fr.read(cbuf, 0, cbuf.length);
+			String msg=new String(cbuf);
+			fr.close();
+
+			byte[] msgInBytes=msg.getBytes();
+			result=merge(result, path.getBytes());
+			for (int i=0; i<msgInBytes.length; i++){
+				result[i+22]=msgInBytes[i];
 			}
 		}
 		else if (split[0].equals("fdel")){
