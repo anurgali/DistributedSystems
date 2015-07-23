@@ -165,7 +165,7 @@ public class Client {
 
 	private byte[] parseCommand(String command) throws IOException {
 		String[] split=command.split(" ");
-		byte[] result=new byte[length];
+		byte[] result=new byte[length+22];
 		if (split[0].equals("init")){
 			result[0]=INITIALIZE;
 		}
