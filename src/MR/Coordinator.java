@@ -59,7 +59,9 @@ public class Coordinator {
         try {
             int groupNumber = 0, count = 0;
             while (sc.hasNextLine()) {
-            	String line=sc.nextLine();
+            	String line=sc.nextLine().trim();
+            	if (line.length()==0)
+            		continue;
             	count++;
             	textPart.append(line+'\n');
             	if(count==linesForSlaves){
@@ -90,8 +92,9 @@ public class Coordinator {
 	    Scanner sc=new Scanner(msg);
 	    int count=0;
 	    while (sc.hasNextLine()){
-	    	sc.nextLine();
-	    	count++;
+	    	String l=sc.nextLine().trim();
+	    	if (l.length()>0)
+	    		count++;
 	    }
 	    sc.close();
 	    return count;
