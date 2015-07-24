@@ -41,7 +41,7 @@ public class Coordinator {
 	//7. Coordinator waits until all tasks are finished and once they finish, it displays "Success"
 	//after that it can start a new Job. <<<Askhat
 	public void queue(String fullPath, IpPort _clientAddress, String text) throws IOException{
-		if (isWorking=true)
+		if (isWorking)
 			return;
 		countMaps=0;
 		oneBigMap.clear();
@@ -90,6 +90,7 @@ public class Coordinator {
 	    Scanner sc=new Scanner(msg);
 	    int count=0;
 	    while (sc.hasNextLine()){
+	    	sc.nextLine();
 	    	count++;
 	    }
 	    sc.close();
