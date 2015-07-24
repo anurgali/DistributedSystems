@@ -157,6 +157,9 @@ public class Client {
 		case DELETE_DIR*-1:
 			logger.info("Failed to delete directory! Make sure the name is correct.");
 			break;	
+		case MR + 10:
+			logger.info("Map-Reduce task successfully finished!");
+			break;
 		default:
 			logger.info("Unknown command "+header);
 			break;

@@ -5,5 +5,5 @@ import java.util.Map;
 
 public interface IReducer{
 
-	public void reduce(Map<String, List<Object>> input, Object output);
+	public String reduce(Map<String, List<Object>> input);
 }

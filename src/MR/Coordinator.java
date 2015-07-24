@@ -16,7 +16,7 @@ public class Coordinator {
 	private String fullPath;
 	private IpPort _clientAddress;
 	private Map<String, List<Object>> oneBigMap=new TreeMap<String, List<Object>>();
-	private int countMaps=0;
+	private int countMaps, countReducers, linesForSlaves;
 
 	public Coordinator(Master master){
 
@@ -52,7 +52,7 @@ public class Coordinator {
 		int numberOfSlaves=master.get_slaves().size();
 		int numberOfLines=0;
 		numberOfLines=countLines(text);
-		int linesForSlaves=numberOfLines/numberOfSlaves;
+		linesForSlaves=numberOfLines/numberOfSlaves;
         //read file
 		StringBuilder textPart=new StringBuilder();
         Scanner sc=new Scanner(text);
@@ -114,16 +114,32 @@ public class Coordinator {
 		countMaps++;
 		if (countMaps==numberOfSlaves){
 			countMaps=0;
-			int roundRobin=0;
+			int keysPerSlave=oneBigMap.size()/master.get_slaves().size();
+			int count=0, groupNumber=0;
 			for (String key: oneBigMap.keySet()){
-				int slaveIndex=roundRobin%numberOfSlaves;
 				List<Object> values = oneBigMap.get(key);
 				try {
-					master.sendToReducer(slaveIndex, key, values, fullPath, _clientAddress);
+					master.sendToReducer(groupNumber, key, values, fullPath, _clientAddress);
+					countReducers++;
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
+				count++;
+				if (count==keysPerSlave){
+					count=0;
+					groupNumber++;
+				}
+				if (groupNumber>master.get_slaves().size()-1){
+					groupNumber=master.get_slaves().size()-1;
+				}
 			}
+		}
+	}
+
+	public void taskCount() {
+		countReducers--;
+		if (countReducers==0){
+			master.sendSuccess(true, fullPath, _clientAddress);
 		}
 	}
 

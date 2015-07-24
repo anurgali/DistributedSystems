@@ -234,13 +234,16 @@ public class Master {
 			coordinator.queue(fullPath, _clientAddress, msg);
 			break;
 		case MAP+10:
-			byte[] objectInBytes = Arrays.copyOfRange(receiveData, 1, length);
+			byte[] objectInBytes = Arrays.copyOfRange(receiveData, 1, receiveData.length);
 			try {
 				Map<String, List<Object>> output=(Map<String, List<Object>>) Converter.createObject(objectInBytes);
 				coordinator.mergeMaps(output);
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
 			}
+			break;
+		case REDUCE+10:
+			coordinator.taskCount();			
 			break;
 		default:
 			System.out.println("Unknown command "+command); //$NON-NLS-1$
@@ -326,8 +329,22 @@ public class Master {
 	public void sendToReducer(int slaveIndex, String key, List<Object> values, 
 			String fullPath, IpPort _clientAddress) throws IOException {
 		IpPort slave = _slaves.get(slaveIndex);
-		byte[] toSend=Converter.convertToBytes(values);
+		Map<String, List<Object>> map=new TreeMap<String, List<Object>>();
+		map.put(key, values);
+		byte[] toSend=Converter.convertToBytes(map);
 		sendCommandToSlave(slave, fullPath, _clientAddress, REDUCE, toSend);
+	}
+
+	public void sendSuccess(boolean b, String fullPath, IpPort _clientAddress) {
+		byte[] sendData=new byte[length];
+		sendData[0]=MR+10;
+		DatagramPacket sendPacket = new DatagramPacket(sendData,
+				sendData.length, _clientAddress.ip, _clientAddress.port);
+		try {
+			serverSocket.send(sendPacket);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	
 	

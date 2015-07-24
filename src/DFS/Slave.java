@@ -1,7 +1,9 @@
 package DFS;
+import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.ObjectOutput;
 import java.io.ObjectOutputStream;
@@ -73,13 +75,12 @@ public class Slave {
 	
 	public void run() throws IOException{
 		byte[] receiveData = new byte[length];
-		byte[] sendData = new byte[9];
 		try{
 			while (true) {
 				DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
 				slaveSocket.receive(receivePacket);
 				receiveData = receivePacket.getData();
-				sendData=parseRequest(receiveData, receivePacket);
+				byte[] sendData=parseRequest(receiveData, receivePacket);
 				if (sendData[0]!=0){
 					DatagramPacket sendPacket = new DatagramPacket(sendData,
 							sendData.length, receivePacket.getAddress(), receivePacket.getPort());
@@ -223,6 +224,7 @@ public class Slave {
 			Map<String, List<Object>> output=new TreeMap<String, List<Object>>();
 			mapper.map(path, msg, output);
 			byte[] outputInBytes=Converter.convertToBytes(output);
+			sendData=new byte[outputInBytes.length+1]; 
 			sendData[0]=MAP+10;
 			sendData=merge(sendData, outputInBytes);
 			break;
@@ -230,21 +232,15 @@ public class Slave {
 			IReducer reducer=new Reducer();
 			try {
 				Map<String, List<Object>> input=(Map<String, List<Object>>)Converter.createObject(msgInBytes);
-				String reduceOutput=new String();
-				reducer.reduce(input, reduceOutput);
+				String reduceOutput = reducer.reduce(input);
 				f=new File(path);
-				if (f.createNewFile()){
-					PrintWriter pwPrintWriter = new PrintWriter(f);
-					pwPrintWriter.println(msg);
-					pwPrintWriter.flush();
-					pwPrintWriter.close();
-					directory.get(_clientAddress).get(f.getParent()).add(f);
-					sendData[0]=REDUCE+10;
+				if (!f.exists()){
+					f.createNewFile();
 				}
-				else{
-					sendData[0]=REDUCE*-1;
-				}
-				
+				FileWriter fw = new FileWriter(path, true);
+				fw.append(reduceOutput);
+				fw.close();
+				sendData[0]=REDUCE+10;
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
 			}
