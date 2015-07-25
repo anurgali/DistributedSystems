@@ -220,6 +220,7 @@ public class Slave {
 			}
 			break;		
 		case MAP:
+			logger.info("Received MAP");
 			IMapper mapper = new Mapper();
 			Map<String, List<Object>> output=new TreeMap<String, List<Object>>();
 			mapper.map(path, msg, output);
@@ -229,13 +230,18 @@ public class Slave {
 			sendData=merge(sendData, outputInBytes);
 			break;
 		case REDUCE:
+			logger.info("Received REDUCE");
 			IReducer reducer=new Reducer();
 			try {
 				Map<String, List<Object>> input=(Map<String, List<Object>>)Converter.createObject(msgInBytes);
 				String reduceOutput = reducer.reduce(input);
 				f=new File(path);
 				if (!f.exists()){
-					f.createNewFile();
+					boolean success=f.createNewFile();
+					if (!success){
+						sendData[0]=REDUCE*-1;
+						break;
+					}
 				}
 				FileWriter fw = new FileWriter(path, true);
 				fw.append(reduceOutput);
@@ -243,8 +249,7 @@ public class Slave {
 				sendData[0]=REDUCE+10;
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
-			}
-			
+			}			
 			break;
 		default:
 			break;

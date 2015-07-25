@@ -231,6 +231,7 @@ public class Master {
 			}
 			break;
 		case MR:
+			logger.info("Received MR job.");
 			coordinator.queue(fullPath, _clientAddress, msg);
 			break;
 		case MAP+10:
@@ -322,15 +323,14 @@ public class Master {
 	public boolean sendToMapper(int groupNumber, String text, String fullPath) throws IOException{
 		int index=groupNumber%_slaves.size();
 		IpPort slave = _slaves.get(index);
+		logger.info("Sending MAP to: "+slave.toString());
 		sendCommandToSlave(slave, fullPath, slave, MAP, text);
 		return false;
 	}
 
-	public void sendToReducer(int slaveIndex, String key, List<Object> values, 
+	public void sendToReducer(int slaveIndex, Map<String, List<Object>> map, 
 			String fullPath, IpPort _clientAddress) throws IOException {
 		IpPort slave = _slaves.get(slaveIndex);
-		Map<String, List<Object>> map=new TreeMap<String, List<Object>>();
-		map.put(key, values);
 		byte[] toSend=Converter.convertToBytes(map);
 		sendCommandToSlave(slave, fullPath, _clientAddress, REDUCE, toSend);
 	}
@@ -346,7 +346,8 @@ public class Master {
 			e.printStackTrace();
 		}
 	}
-	
-	
 
+	public Logger getLogger() {
+		return logger;
+	}
 }

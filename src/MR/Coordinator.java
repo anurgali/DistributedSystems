@@ -10,8 +10,7 @@ import DFS.IpPort;
 import DFS.Master;
 
 public class Coordinator {
-    private static File myFile;
-	private Master master;
+    private Master master;
 	boolean isWorking=false;
 	private String fullPath;
 	private IpPort _clientAddress;
@@ -84,8 +83,6 @@ public class Coordinator {
         }finally {
             sc.close();
         }
-
-	
 	}
 	
 	public int countLines(String msg) {
@@ -112,21 +109,31 @@ public class Coordinator {
 		}
 		int numberOfSlaves=master.get_slaves().size();
 		countMaps++;
+		master.getLogger().info("Map progress: "+ ((float)countMaps/(float)numberOfSlaves)*100+"%");
 		if (countMaps==numberOfSlaves){
+			master.getLogger().info("MAP phase complete!");
 			countMaps=0;
 			int keysPerSlave=oneBigMap.size()/master.get_slaves().size();
 			int count=0, groupNumber=0;
+			Map<String, List<Object>> map=new TreeMap<String, List<Object>>();
 			for (String key: oneBigMap.keySet()){
 				List<Object> values = oneBigMap.get(key);
-				try {
-					master.sendToReducer(groupNumber, key, values, fullPath, _clientAddress);
-					countReducers++;
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				map.put(key, values);
 				count++;
 				if (count==keysPerSlave){
+					try {
+						countReducers++;
+						master.sendToReducer(groupNumber, map, fullPath, _clientAddress);
+						Thread.sleep(50);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 					count=0;
+					map.clear();
 					groupNumber++;
 				}
 				if (groupNumber>master.get_slaves().size()-1){
@@ -138,10 +145,10 @@ public class Coordinator {
 
 	public void taskCount() {
 		countReducers--;
+		master.getLogger().info("Reduce progress: "+ ((float)(oneBigMap.size()-countReducers)/(float)oneBigMap.size())*100+"%");
 		if (countReducers==0){
+			master.getLogger().info("Reduce phase complete!");
 			master.sendSuccess(true, fullPath, _clientAddress);
 		}
 	}
-
-	
 }
