@@ -26,8 +26,9 @@ import java.util.logging.SimpleFormatter;
 
 import MR.IMapper;
 import MR.IReducer;
-import MR.Mapper;
-import MR.Reducer;
+import MR.MRFactory;
+import MR.WordCountMapper;
+import MR.WordCountReducer;
 
 import util.Config;
 import util.Converter;
@@ -221,7 +222,7 @@ public class Slave {
 			break;		
 		case MAP:
 			logger.info("Received MAP");
-			IMapper mapper = new Mapper();
+			IMapper mapper = MRFactory.getMapper(Config.getString("example"));
 			Map<String, List<Object>> output=new TreeMap<String, List<Object>>();
 			mapper.map(path, msg, output);
 			byte[] outputInBytes=Converter.convertToBytes(output);
@@ -231,7 +232,7 @@ public class Slave {
 			break;
 		case REDUCE:
 			logger.info("Received REDUCE");
-			IReducer reducer=new Reducer();
+			IReducer reducer=MRFactory.getReducer(Config.getString("example"));
 			try {
 				Map<String, List<Object>> input=(Map<String, List<Object>>)Converter.createObject(msgInBytes);
 				String reduceOutput = reducer.reduce(input);

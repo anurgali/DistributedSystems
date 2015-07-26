@@ -26,9 +26,9 @@ public class Coordinator {
 	
 	//2. send each piece to Master <<<<Askhat +DONE, I hope
 	
-	//3. Master sends to slaves the Mapper work via RMI and sends back to Coordinator the result <<<Albert
+	//3. Master sends to slaves the WordCountMapper work via RMI and sends back to Coordinator the result <<<Albert
 	
-	//4. Coordinator waits for every Mapper piece to finish <<< Albert
+	//4. Coordinator waits for every WordCountMapper piece to finish <<< Albert
 	
 	//5. All pieces received: Key1 -> Value1, Key2 -> Value2, Key1 -> Value3   <<<Askhat
 	// shuffle & merge & sort: {Key1 -> Value1, Value3}   {Key2 -> Value2}

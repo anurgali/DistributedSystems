@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
 
-public class Mapper implements IMapper {
+public class WordCountMapper implements IMapper {
 
 	@Override
 	public void map(String fileName, String text,
