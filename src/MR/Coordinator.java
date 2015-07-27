@@ -24,7 +24,7 @@ public class Coordinator {
 	
 	//1. get input of the file and split into pieces <<<< Askhat + DONE
 	
-	//2. send each piece to Master <<<<Askhat +DONE, I hope
+	//2. send each piece to Master <<<<Askhat +DONE,
 	
 	//3. Master sends to slaves the WordCountMapper work via RMI and sends back to Coordinator the result <<<Albert
 	
