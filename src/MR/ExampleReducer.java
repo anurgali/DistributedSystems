@@ -3,10 +3,10 @@ package MR;
 import java.util.List;
 import java.util.Map;
 
-import util.Config;
+import util.MRConfig;
 
 public class ExampleReducer implements IReducer {
-	private int max=Integer.parseInt(Config.getString("max"));
+	private int max=Integer.parseInt(MRConfig.getString("max"));
 
 	@Override
 	public String reduce(Map<String, List<Object>> input) {
