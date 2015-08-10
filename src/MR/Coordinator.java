@@ -16,7 +16,7 @@ public class Coordinator {
 	private IpPort _clientAddress;
 	private Map<String, List<Object>> oneBigMap=new TreeMap<String, List<Object>>();
 	private int countMaps, countReducers, linesForSlaves;
-
+	
 	public Coordinator(Master master){
 
         this.master=master;

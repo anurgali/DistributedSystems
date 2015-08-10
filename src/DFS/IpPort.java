@@ -3,7 +3,7 @@ import java.net.InetAddress;
 
 
 public class IpPort {
-	InetAddress ip;
+	public InetAddress ip;
 	int port;
 	
 	public IpPort(InetAddress inet, int port) {

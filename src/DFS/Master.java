@@ -1,16 +1,11 @@
 package DFS;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.ObjectInput;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.text.ParseException;
@@ -29,6 +24,7 @@ import util.Config;
 import util.Converter;
 
 import MR.Coordinator;
+import MR.HeartBeat;
 
 /**
  * 
@@ -59,6 +55,7 @@ public class Master {
 			MAP=101,
 			REDUCE=102;
 	private Coordinator coordinator;
+	private HashMap<IpPort, HeartBeat> heartBeatThreads=new HashMap<IpPort, HeartBeat>();
 	
 	public Master(String ip, String port, String slavesfile, String logFile) 
 			throws FileNotFoundException, ParseException, UnknownHostException {
@@ -320,12 +317,15 @@ public class Master {
 		return _slaves;
 	}
 
-	public boolean sendToMapper(int groupNumber, String text, String fullPath) throws IOException{
+	public void sendToMapper(int groupNumber, String text, String fullPath) throws IOException{
 		int index=groupNumber%_slaves.size();
 		IpPort slave = _slaves.get(index);
 		logger.info("Sending MAP to: "+slave.toString());
 		sendCommandToSlave(slave, fullPath, slave, MAP, text);
-		return false;
+		HeartBeat t=new HeartBeat(slave, ip, this);
+		heartBeatThreads.put(slave, t);
+		t.setWorking(true);
+		t.start();
 	}
 
 	public void sendToReducer(int slaveIndex, Map<String, List<Object>> map, 
@@ -342,9 +342,13 @@ public class Master {
 				sendData.length, _clientAddress.ip, _clientAddress.port);
 		try {
 			serverSocket.send(sendPacket);
+			for (IpPort slave: heartBeatThreads.keySet()){
+				HeartBeat t=heartBeatThreads.get(slave);
+				t.setWorking(false);
+			}
 		} catch (IOException e) {
 			e.printStackTrace();
-		}
+		}		
 	}
 
 	public Logger getLogger() {

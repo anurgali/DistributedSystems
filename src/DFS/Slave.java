@@ -1,12 +1,8 @@
 package DFS;
-import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.ObjectOutput;
-import java.io.ObjectOutputStream;
 import java.io.PrintWriter;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -27,9 +23,7 @@ import java.util.logging.SimpleFormatter;
 import MR.IMapper;
 import MR.IReducer;
 import MR.MRFactory;
-import MR.WordCountMapper;
-import MR.WordCountReducer;
-
+import MR.STATUS;
 import util.Config;
 import util.Converter;
 
@@ -38,9 +32,10 @@ public class Slave {
 
 	private int port, masterport;
 	private String ip, masterIp;
-	private DatagramSocket slaveSocket;
+	private DatagramSocket slaveSocket, heartBeatSocket;
 	private Logger logger = Logger.getLogger("Slave Log");
 	private int length=Integer.parseInt(Config.getString("length"));
+	private STATUS status=STATUS.IDLE;
 	
 	//client->folder->files
 	private HashMap<IpPort, TreeMap<String, ArrayList<File>>> directory=
@@ -55,18 +50,62 @@ public class Slave {
 			MAKE_DIR=8, 
 			DELETE_DIR=9,
 			MAP=101,
-			REDUCE=102;
+			REDUCE=102,
+			HB=103;
+	
+	private Thread heartBeat=new Thread(new Runnable(){
+
+		@Override
+		public void run() {
+			while (true){
+				try {
+					byte[] receiveData=new byte[1];
+					DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+					heartBeatSocket.receive(receivePacket);
+					receiveData = receivePacket.getData();
+					if (receiveData[0]==HB){
+						byte[] sendData=new byte[2];
+						sendData[0]=HB;
+						switch (status){
+						case IDLE:
+							sendData[0]=1;
+							break;
+						case FAILED:
+							sendData[0]=2;
+							break;
+						case WORKING:
+							sendData[0]=3;
+							break;
+						case COMPLETE:
+							sendData[0]=4;
+							break;
+						}
+						DatagramPacket sendPacket = new DatagramPacket(sendData,
+								sendData.length, receivePacket.getAddress(), receivePacket.getPort());
+						heartBeatSocket.send(sendPacket);						
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
+		
+	});
 	
 	public Slave(String ip, String port) throws SocketException, UnknownHostException{
 		this.port=Integer.parseInt(port);
 		this.ip=ip;	
 		InetAddress IPAddress = InetAddress.getByName(ip);
 		slaveSocket = new DatagramSocket(this.port, IPAddress);
+		int hbPort=Integer.parseInt(Config.getString("heart_beat_port"));
+		heartBeatSocket = new DatagramSocket(hbPort, IPAddress);
 		try {  
 	    	FileHandler fh = new FileHandler("slave_"+ip+"_"+port);  
 	        logger.addHandler(fh);
 	        SimpleFormatter formatter = new SimpleFormatter();  
 	        fh.setFormatter(formatter);  
+	        heartBeat.start();
 	    } catch (SecurityException e) {  
 	        e.printStackTrace();  
 	    } catch (IOException e) {  
@@ -222,18 +261,25 @@ public class Slave {
 			break;		
 		case MAP:
 			logger.info("Received MAP");
-			IMapper mapper = MRFactory.getMapper(Config.getString("example"));
-			Map<String, List<Object>> output=new TreeMap<String, List<Object>>();
-			mapper.map(path, msg, output);
-			byte[] outputInBytes=Converter.convertToBytes(output);
-			sendData=new byte[outputInBytes.length+1]; 
-			sendData[0]=MAP+10;
-			sendData=merge(sendData, outputInBytes);
+			try{
+				status=STATUS.WORKING;
+				IMapper mapper = MRFactory.getMapper(Config.getString("example"));
+				Map<String, List<Object>> output=new TreeMap<String, List<Object>>();
+				mapper.map(path, msg, output);
+				byte[] outputInBytes=Converter.convertToBytes(output);
+				sendData=new byte[outputInBytes.length+1]; 
+				sendData[0]=MAP+10;
+				sendData=merge(sendData, outputInBytes);
+			} catch (Exception e){
+				e.printStackTrace();
+				status=STATUS.FAILED;
+			}
 			break;
 		case REDUCE:
 			logger.info("Received REDUCE");
-			IReducer reducer=MRFactory.getReducer(Config.getString("example"));
 			try {
+				status=STATUS.WORKING;
+				IReducer reducer=MRFactory.getReducer(Config.getString("example"));
 				Map<String, List<Object>> input=(Map<String, List<Object>>)Converter.createObject(msgInBytes);
 				String reduceOutput = reducer.reduce(input);
 				f=new File(path);
@@ -248,8 +294,10 @@ public class Slave {
 				fw.append(reduceOutput);
 				fw.close();
 				sendData[0]=REDUCE+10;
-			} catch (ClassNotFoundException e) {
+				status=STATUS.COMPLETE;
+			} catch (Exception e) {
 				e.printStackTrace();
+				status=STATUS.FAILED;
 			}			
 			break;
 		default:
