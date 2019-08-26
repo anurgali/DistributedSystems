@@ -2,7 +2,7 @@ The DFS is designed as a globally centralized system.
 There are three types of nodes: 
 1) client - queries the server
 2) master - Name Node analog from HDFS
-3) slave - the actual data node.
+3) slave - the actual data node.===
 
 Client sends all requests to Master, which determines from the hash value of the path
 which slave is supposed to store the specified path. The master uses a lookup
